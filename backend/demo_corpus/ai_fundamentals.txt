@@ -1,0 +1,31 @@
+AI FUNDAMENTALS — A CONCISE REFERENCE GUIDE
+
+LARGE LANGUAGE MODELS (LLMs)
+Large Language Models are neural networks trained on massive text corpora using the Transformer architecture. They predict the next token in a sequence, which—at scale—produces emergent reasoning capabilities. Key models include GPT-4 (OpenAI), Claude (Anthropic), Gemini (Google), and Llama (Meta). Training involves pre-training on broad data followed by fine-tuning with RLHF (Reinforcement Learning from Human Feedback) to align outputs with human preferences.
+
+RETRIEVAL-AUGMENTED GENERATION (RAG)
+RAG combines a retrieval system with a generative LLM. Rather than relying solely on parametric knowledge baked into model weights, RAG fetches relevant documents at inference time and injects them into the prompt as context. This reduces hallucination, keeps knowledge current without retraining, and allows the model to cite sources. The pipeline: (1) index documents as vector embeddings, (2) embed the user query, (3) retrieve top-k similar chunks via cosine similarity, (4) pass chunks + query to LLM.
+
+VECTOR DATABASES
+A vector database stores high-dimensional embedding vectors and enables fast approximate nearest-neighbor (ANN) search. Popular options: Pinecone (managed), Weaviate (open-source), ChromaDB (lightweight, SQLite-backed), pgvector (PostgreSQL extension), Qdrant (Rust-based, high performance). The key metric is recall vs. latency trade-off; HNSW (Hierarchical Navigable Small World) graphs are the dominant ANN algorithm.
+
+EMBEDDINGS
+An embedding is a dense numerical vector that encodes semantic meaning. Similar concepts cluster near each other in vector space. Text embedding models (e.g., OpenAI text-embedding-3-large, Google text-embedding-004, sentence-transformers) convert text into fixed-length vectors (commonly 768 or 1536 dimensions). Embeddings are the foundation of semantic search, RAG, and recommendation systems.
+
+AGENTS AND TOOL USE
+AI agents extend LLMs with the ability to call external tools (web search, code execution, API calls, database queries) and plan multi-step workflows. Frameworks: LangChain, LangGraph, AutoGen, CrewAI. Key patterns: ReAct (Reasoning + Acting), chain-of-thought prompting, function calling. Agents maintain state across turns and can spawn sub-agents for parallelism.
+
+FINE-TUNING VS PROMPTING
+Prompt engineering (in-context learning) is the fastest way to steer model behavior — no training required. Fine-tuning adjusts model weights on a task-specific dataset, improving performance for narrow domains at the cost of compute. LoRA (Low-Rank Adaptation) and QLoRA make fine-tuning accessible on consumer hardware by training only low-rank adapter matrices. For most enterprise use cases, RAG + good prompting outperforms fine-tuning because knowledge can be updated without retraining.
+
+HALLUCINATION
+Hallucination refers to LLM outputs that are factually incorrect or fabricated. Causes include: training data gaps, over-confident decoding, ambiguous prompts. Mitigation strategies: RAG (grounding in retrieved facts), temperature reduction, self-consistency (sampling multiple outputs and voting), Constitutional AI, citation requirements in prompts.
+
+CONTEXT WINDOW
+The context window is the maximum number of tokens an LLM can process in a single call (input + output combined). Modern long-context models support 128K–1M tokens. Larger windows allow processing entire codebases or books, but attention mechanisms have quadratic complexity, making very long contexts computationally expensive. RAG remains useful even with long-context models because selective retrieval is cheaper than stuffing everything into every prompt.
+
+MULTIMODAL AI
+Multimodal models process multiple data types — text, images, audio, video. Examples: GPT-4o, Gemini 1.5, Claude 3. Vision capabilities enable document parsing, chart interpretation, and visual Q&A. Audio models (Whisper) enable transcription and translation. The trend is toward unified models that handle all modalities in a single architecture.
+
+AI SAFETY AND ALIGNMENT
+Alignment research aims to ensure AI systems pursue intended goals and remain controllable. Key concerns: reward hacking, goal misgeneralization, deceptive alignment, and emergent capabilities. Anthropic's Constitutional AI and OpenAI's RLHF are practical alignment techniques. Interpretability research (mechanistic interp) tries to understand what's happening inside model weights. AI safety is now a mainstream research discipline with significant industry and academic investment.

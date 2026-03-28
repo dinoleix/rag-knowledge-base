@@ -1,0 +1,31 @@
+THE MODERN AI ENGINEERING STACK — PRACTITIONER'S GUIDE
+
+LANGUAGE MODEL APIS
+The fastest path to AI-powered products is through hosted LLM APIs. Anthropic Claude API offers the claude-3-5-sonnet model for balanced speed/intelligence, claude-opus-4 for maximum capability, and claude-haiku for low-latency tasks. OpenAI offers GPT-4o (multimodal flagship) and GPT-4o-mini (cost-efficient). Google Gemini offers gemini-1.5-flash (fast, free tier available) and gemini-1.5-pro (long context up to 2M tokens). Pricing is per-token (input + output), typically $0.25–$15 per million tokens depending on model tier.
+
+PROMPT ENGINEERING TECHNIQUES
+Chain-of-Thought (CoT): Ask the model to "think step by step" before answering — dramatically improves reasoning on math and logic tasks. Few-Shot Prompting: Provide 2–5 input/output examples in the prompt to steer format and style. System Prompts: Use the system role to set persistent persona, rules, and constraints. Structured Output: Instruct the model to respond in JSON — use Pydantic models or Zod schemas to parse and validate. Temperature: 0.0 for deterministic/factual tasks, 0.7–1.0 for creative generation.
+
+LANGCHAIN AND LANGGRAPH
+LangChain is the most widely adopted LLM application framework. Core abstractions: LLM/ChatModel wrappers, Prompt Templates, Output Parsers, Document Loaders, Text Splitters, Vector Stores, and Chains. LCEL (LangChain Expression Language) enables declarative chain composition using pipe operators. LangGraph extends LangChain for stateful, cyclical workflows — essential for agents that loop, branch, and maintain memory across steps. LangSmith provides observability (traces, evals, datasets) for LangChain apps.
+
+VECTOR STORE INTEGRATIONS
+ChromaDB: Zero-dependency, runs in-process (SQLite) or as a server. Best for prototypes and small-scale production. Pinecone: Fully managed, serverless, high throughput. Free tier (1 index, 100K vectors). Qdrant: Open-source, Rust-based, production-grade performance. Self-hostable or managed cloud. Supabase pgvector: PostgreSQL with vector extension — great if you already use Postgres (no additional infrastructure). Weaviate: GraphQL API, supports multimodal vectors, strong hybrid search.
+
+FASTAPI FOR AI BACKENDS
+FastAPI is the de facto Python web framework for AI APIs. Built on Starlette (ASGI) and Pydantic. Key features: automatic OpenAPI docs at /docs, async request handling, type-safe request/response models via Pydantic, background tasks, WebSocket support (for streaming), and dependency injection. For RAG backends: define Pydantic request models, use async file uploads for document ingestion, implement streaming responses with StreamingResponse for LLM output.
+
+PYTHON AI ECOSYSTEM
+Core ML: PyTorch (research + production), TensorFlow (enterprise, mobile). Hugging Face Transformers: 300K+ models, fine-tuning pipelines, Inference API. Sentence Transformers: Fast, high-quality embeddings for semantic search. Weights & Biases (W&B): Experiment tracking, model registry, hyperparameter sweeps. MLflow: Open-source experiment tracking and model deployment. Ollama: Run open-source LLMs (Llama, Mistral, Phi) locally with one command.
+
+REACT + TYPESCRIPT FOR AI UIS
+TypeScript provides type safety for API response shapes — define interfaces for LLM responses, source citations, and stream events. Key patterns for AI UIs: streaming text with ReadableStream and TextDecoder, optimistic UI updates during generation, markdown rendering (react-markdown), syntax highlighting for code blocks (Prism.js), and chat message virtualization for long conversations (react-virtual). Tailwind CSS or CSS modules for styling — avoid heavy component libraries that add unnecessary bundle weight.
+
+DEPLOYMENT ON A BUDGET
+Render (render.com): Free tier for web services (750 hours/month, sleeps after 15min inactivity). Auto-deploys from GitHub. Supports Python, Node, Docker. Vercel: Best-in-class for React/Next.js frontends. Free tier includes unlimited personal projects, automatic preview URLs per PR. Railway: $5/month credit, no sleep, PostgreSQL included. Hugging Face Spaces: Free GPU-backed hosting for ML demos (Gradio or Streamlit). Fly.io: Free tier for small containers, global edge deployment.
+
+OBSERVABILITY FOR LLM APPS
+LLM apps have unique observability needs: token usage, latency per LLM call, retrieval quality scores, and hallucination rates. Tools: LangSmith (native LangChain tracing), Helicone (OpenAI proxy with analytics), Arize Phoenix (open-source LLM observability), Langfuse (open-source, self-hostable). Key metrics to track: TTFT (Time To First Token), total generation latency, retrieval precision@k, user thumbs-up/down feedback.
+
+SECURITY FOR AI APPLICATIONS
+Prompt injection: Malicious user input that overrides system instructions. Mitigate with input sanitization, output validation, and never executing LLM output directly as code. Data exfiltration: RAG systems can leak private documents if retrieval is not scoped to authorized content. Implement per-user document namespacing. API key management: Never expose keys client-side. Use environment variables, secrets managers (AWS Secrets Manager, Doppler), or Vercel environment variables. Rate limiting: Protect AI endpoints from abuse with slowapi (FastAPI) or Cloudflare rate limiting.

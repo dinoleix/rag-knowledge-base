@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.pyc
+.env
+backend/chroma_store/
+
+# Node
+node_modules/
+dist/
+.env.local
+
+# OS
+.DS_Store
