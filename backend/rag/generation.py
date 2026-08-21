@@ -1,6 +1,6 @@
 import google.generativeai as genai
 
-MODEL = "models/gemini-2.5-flash"
+MODEL = "models/gemini-3.6-flash"
 
 # Gemini's sampling defaults for this model
 DEFAULT_TEMPERATURE = 1.0
