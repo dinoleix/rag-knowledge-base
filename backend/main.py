@@ -28,9 +28,17 @@ from rag.ingestion import (
     list_documents,
 )
 from rag.retrieval import retrieve
-from rag.generation import generate_answer
+from rag.generation import (
+    DEFAULT_TEMPERATURE,
+    DEFAULT_TOP_K,
+    DEFAULT_TOP_P,
+    generate_answer,
+)
 
 MIN_CHUNK_SIZE, MAX_CHUNK_SIZE = 50, 4000
+MIN_TEMPERATURE, MAX_TEMPERATURE = 0.0, 2.0
+MIN_TOP_P, MAX_TOP_P = 0.0, 1.0
+MIN_GEN_TOP_K, MAX_GEN_TOP_K = 1, 100
 
 
 def _validate_chunk_settings(chunk_size: int, chunk_overlap: int) -> None:
@@ -38,6 +46,15 @@ def _validate_chunk_settings(chunk_size: int, chunk_overlap: int) -> None:
         raise HTTPException(422, f"chunk_size must be between {MIN_CHUNK_SIZE} and {MAX_CHUNK_SIZE} characters.")
     if not (0 <= chunk_overlap < chunk_size):
         raise HTTPException(422, "chunk_overlap must be >= 0 and less than chunk_size.")
+
+
+def _validate_generation_settings(temperature: float, top_p: float, gen_top_k: int) -> None:
+    if not (MIN_TEMPERATURE <= temperature <= MAX_TEMPERATURE):
+        raise HTTPException(422, f"gen_temperature must be between {MIN_TEMPERATURE} and {MAX_TEMPERATURE}.")
+    if not (MIN_TOP_P <= top_p <= MAX_TOP_P):
+        raise HTTPException(422, f"gen_top_p must be between {MIN_TOP_P} and {MAX_TOP_P}.")
+    if not (MIN_GEN_TOP_K <= gen_top_k <= MAX_GEN_TOP_K):
+        raise HTTPException(422, f"gen_top_k must be between {MIN_GEN_TOP_K} and {MAX_GEN_TOP_K}.")
 
 DEMO_CORPUS_DIR = pathlib.Path(__file__).parent / "demo_corpus"
 ALLOWED_EXTENSIONS = {"pdf", "txt", "md"}
@@ -136,15 +153,22 @@ async def ingest_stream(
 
 class QueryRequest(BaseModel):
     question: str
-    top_k: int = 5
+    top_k: int = 5  # number of chunks to retrieve
+    # Gemini generation-sampling controls (distinct from retrieval top_k above)
+    gen_temperature: float = DEFAULT_TEMPERATURE
+    gen_top_p: float = DEFAULT_TOP_P
+    gen_top_k: int = DEFAULT_TOP_K
 
 
 @app.post("/query")
 def query(req: QueryRequest):
     if not req.question.strip():
         raise HTTPException(400, "Question cannot be empty.")
+    _validate_generation_settings(req.gen_temperature, req.gen_top_p, req.gen_top_k)
     sources = retrieve(req.question, top_k=req.top_k)
-    answer = generate_answer(req.question, sources)
+    answer = generate_answer(
+        req.question, sources, req.gen_temperature, req.gen_top_p, req.gen_top_k
+    )
     return {"answer": answer, "sources": sources}
 
 

@@ -2,6 +2,11 @@ import google.generativeai as genai
 
 MODEL = "models/gemini-2.5-flash"
 
+# Gemini's sampling defaults for this model
+DEFAULT_TEMPERATURE = 1.0
+DEFAULT_TOP_P = 0.95
+DEFAULT_TOP_K = 40
+
 SYSTEM_PROMPT = """You are a knowledgeable assistant that answers questions strictly based on the provided document excerpts.
 
 Rules:
@@ -11,7 +16,13 @@ Rules:
 - Never fabricate facts."""
 
 
-def generate_answer(question: str, sources: list[dict]) -> str:
+def generate_answer(
+    question: str,
+    sources: list[dict],
+    temperature: float = DEFAULT_TEMPERATURE,
+    top_p: float = DEFAULT_TOP_P,
+    top_k: int = DEFAULT_TOP_K,
+) -> str:
     """Generate an answer grounded in the retrieved source chunks."""
     if not sources:
         return "I couldn't find any relevant information in the knowledge base to answer your question. Please try uploading documents related to your query."
@@ -34,5 +45,12 @@ Question: {question}
 Answer:"""
 
     model = genai.GenerativeModel(MODEL)
-    response = model.generate_content(prompt)
+    response = model.generate_content(
+        prompt,
+        generation_config=genai.GenerationConfig(
+            temperature=temperature,
+            top_p=top_p,
+            top_k=top_k,
+        ),
+    )
     return response.text

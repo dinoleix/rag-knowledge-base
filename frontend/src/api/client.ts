@@ -13,6 +13,14 @@ export interface QueryResponse {
   sources: Source[]
 }
 
+export interface GenerationParams {
+  temperature: number
+  topP: number
+  topK: number
+}
+
+export const DEFAULT_GENERATION_PARAMS: GenerationParams = { temperature: 1.0, topP: 0.95, topK: 40 }
+
 export interface IngestResponse {
   doc_id: string
   filename: string
@@ -56,11 +64,21 @@ export interface Document {
   chunks: number
 }
 
-export async function queryKB(question: string, top_k = 5): Promise<QueryResponse> {
+export async function queryKB(
+  question: string,
+  top_k = 5,
+  gen: GenerationParams = DEFAULT_GENERATION_PARAMS,
+): Promise<QueryResponse> {
   const res = await fetch(`${BASE}/query`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question, top_k }),
+    body: JSON.stringify({
+      question,
+      top_k,
+      gen_temperature: gen.temperature,
+      gen_top_p: gen.topP,
+      gen_top_k: gen.topK,
+    }),
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Unknown error' }))
