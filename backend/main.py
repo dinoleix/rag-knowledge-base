@@ -1,7 +1,5 @@
 import json
 import os
-import pathlib
-from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -22,7 +20,6 @@ from rag.ingestion import (
     CHUNK_OVERLAP,
     CHUNK_SIZE,
     delete_document,
-    get_collection,
     ingest_document,
     ingest_document_events,
     list_documents,
@@ -56,34 +53,9 @@ def _validate_generation_settings(temperature: float, top_p: float, gen_top_k: i
     if not (MIN_GEN_TOP_K <= gen_top_k <= MAX_GEN_TOP_K):
         raise HTTPException(422, f"gen_top_k must be between {MIN_GEN_TOP_K} and {MAX_GEN_TOP_K}.")
 
-DEMO_CORPUS_DIR = pathlib.Path(__file__).parent / "demo_corpus"
 ALLOWED_EXTENSIONS = {"pdf", "txt", "md"}
 
-
-def _seed_demo_corpus():
-    """Ingest demo corpus files on first startup (only if collection is empty)."""
-    collection = get_collection()
-    if collection.count() > 0:
-        return
-    if not DEMO_CORPUS_DIR.exists():
-        return
-    for path in DEMO_CORPUS_DIR.iterdir():
-        ext = path.suffix.lstrip(".").lower()
-        if ext in ALLOWED_EXTENSIONS:
-            try:
-                stats = ingest_document(path.read_bytes(), path.name)
-                print(f"[seed] ingested {path.name} → {stats['chunks']} chunks")
-            except Exception as e:
-                print(f"[seed] failed to ingest {path.name}: {e}")
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    _seed_demo_corpus()
-    yield
-
-
-app = FastAPI(title="RAG Knowledge Base API", lifespan=lifespan)
+app = FastAPI(title="RAG Knowledge Base API")
 
 app.add_middleware(
     CORSMiddleware,
