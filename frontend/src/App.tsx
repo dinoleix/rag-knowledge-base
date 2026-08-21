@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import ChatInterface from './components/ChatInterface'
 import DocumentLibrary from './components/DocumentLibrary'
-import DocumentUpload from './components/DocumentUpload'
+import IngestPipeline from './components/IngestPipeline'
 import type { IngestResponse } from './api/client'
 
 export default function App() {
@@ -32,7 +32,7 @@ export default function App() {
       <main className="main">
         {/* Sidebar */}
         <aside className="sidebar">
-          <DocumentUpload onIngested={onIngested} />
+          <IngestPipeline onIngested={onIngested} />
           <DocumentLibrary refreshTrigger={refreshTrigger} />
 
           <div className="tech-note">

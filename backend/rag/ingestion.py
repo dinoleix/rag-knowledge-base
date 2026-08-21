@@ -1,6 +1,7 @@
 import uuid
 import io
 from typing import Optional
+import numpy as np
 import google.generativeai as genai
 import chromadb
 from chromadb.config import Settings
@@ -55,6 +56,24 @@ def _chunk_text(text: str, chunk_size: int = CHUNK_SIZE, chunk_overlap: int = CH
 
 
 EMBED_BATCH_SIZE = 50
+PREVIEW_CHARS = 220
+
+
+def _project_2d(embeddings: list[list[float]]) -> list[tuple[float, float]]:
+    """Project embedding vectors to 2D via PCA, scaled to roughly [-1, 1], so
+    semantically similar chunks land close together on a scatter plot."""
+    arr = np.array(embeddings, dtype=np.float64)
+    if arr.shape[0] < 2:
+        return [(0.0, 0.0) for _ in range(arr.shape[0])]
+
+    centered = arr - arr.mean(axis=0)
+    u, s, _vt = np.linalg.svd(centered, full_matrices=False)
+    coords = u[:, :2] * s[:2]
+
+    max_abs = np.max(np.abs(coords))
+    if max_abs > 0:
+        coords = coords / max_abs
+    return [(float(x), float(y)) for x, y in coords]
 
 
 # ── Public API ───────────────────────────────────────────────────────────────
@@ -77,7 +96,11 @@ def ingest_document_events(
     if not chunks:
         yield {"stage": "error", "message": "Chunking produced no chunks."}
         return
-    yield {"stage": "chunked", "chunks": len(chunks)}
+    previews = [
+        {"index": i, "text": chunk[:PREVIEW_CHARS] + ("…" if len(chunk) > PREVIEW_CHARS else "")}
+        for i, chunk in enumerate(chunks)
+    ]
+    yield {"stage": "chunked", "chunks": len(chunks), "previews": previews}
 
     doc_id = str(uuid.uuid4())
 
@@ -99,6 +122,12 @@ def ingest_document_events(
             "embedded": len(embeddings),
             "total": len(chunks),
         }
+
+    points = _project_2d(embeddings)
+    yield {
+        "stage": "projected",
+        "points": [{"index": i, "x": x, "y": y} for i, (x, y) in enumerate(points)],
+    }
 
     yield {"stage": "storing"}
     collection = get_collection()

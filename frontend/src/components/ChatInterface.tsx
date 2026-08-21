@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { queryKB, type Source } from '../api/client'
 import SourceCitations from './SourceCitations'
+import SemanticSearchGraphic from './SemanticSearchGraphic'
 
 interface Message {
   role: 'user' | 'assistant'
   content: string
+  question?: string
   sources?: Source[]
   loading?: boolean
 }
@@ -59,7 +61,7 @@ export default function ChatInterface() {
       const result = await queryKB(q)
       setMessages((prev) => [
         ...prev.slice(0, -1),
-        { role: 'assistant', content: result.answer, sources: result.sources },
+        { role: 'assistant', content: result.answer, question: q, sources: result.sources },
       ])
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Something went wrong.'
@@ -113,7 +115,10 @@ export default function ChatInterface() {
                     <ReactMarkdown>{msg.content}</ReactMarkdown>
                   </div>
                   {msg.sources && msg.sources.length > 0 && (
-                    <SourceCitations sources={msg.sources} />
+                    <>
+                      <SemanticSearchGraphic query={msg.question ?? ''} sources={msg.sources} />
+                      <SourceCitations sources={msg.sources} />
+                    </>
                   )}
                 </>
               )}

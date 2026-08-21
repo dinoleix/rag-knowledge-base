@@ -21,17 +21,30 @@ export interface IngestResponse {
   char_count: number
 }
 
+export interface ChunkPreview {
+  index: number
+  text: string
+}
+
+export interface EmbeddingPoint {
+  index: number
+  x: number
+  y: number
+}
+
 export interface IngestProgressEvent {
-  stage: 'loading' | 'loaded' | 'chunking' | 'chunked' | 'embedding' | 'storing' | 'done' | 'error'
+  stage: 'loading' | 'loaded' | 'chunking' | 'chunked' | 'embedding' | 'projected' | 'storing' | 'done' | 'error'
   filename?: string
   char_count?: number
   chunk_size?: number
   chunk_overlap?: number
   chunks?: number
+  previews?: ChunkPreview[]
   batch?: number
   total_batches?: number
   embedded?: number
   total?: number
+  points?: EmbeddingPoint[]
   doc_id?: string
   embed_model?: string
   message?: string
