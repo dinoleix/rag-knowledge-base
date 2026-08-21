@@ -1,10 +1,12 @@
+import json
 import os
 import pathlib
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 load_dotenv()
@@ -16,9 +18,26 @@ if not GEMINI_API_KEY:
     raise RuntimeError("GEMINI_API_KEY environment variable is not set.")
 genai.configure(api_key=GEMINI_API_KEY)
 
-from rag.ingestion import delete_document, get_collection, ingest_document, list_documents
+from rag.ingestion import (
+    CHUNK_OVERLAP,
+    CHUNK_SIZE,
+    delete_document,
+    get_collection,
+    ingest_document,
+    ingest_document_events,
+    list_documents,
+)
 from rag.retrieval import retrieve
 from rag.generation import generate_answer
+
+MIN_CHUNK_SIZE, MAX_CHUNK_SIZE = 50, 4000
+
+
+def _validate_chunk_settings(chunk_size: int, chunk_overlap: int) -> None:
+    if not (MIN_CHUNK_SIZE <= chunk_size <= MAX_CHUNK_SIZE):
+        raise HTTPException(422, f"chunk_size must be between {MIN_CHUNK_SIZE} and {MAX_CHUNK_SIZE} characters.")
+    if not (0 <= chunk_overlap < chunk_size):
+        raise HTTPException(422, "chunk_overlap must be >= 0 and less than chunk_size.")
 
 DEMO_CORPUS_DIR = pathlib.Path(__file__).parent / "demo_corpus"
 ALLOWED_EXTENSIONS = {"pdf", "txt", "md"}
@@ -65,18 +84,54 @@ def health():
 
 
 @app.post("/ingest")
-async def ingest(file: UploadFile = File(...)):
+async def ingest(
+    file: UploadFile = File(...),
+    chunk_size: int = Form(CHUNK_SIZE),
+    chunk_overlap: int = Form(CHUNK_OVERLAP),
+):
     ext = (file.filename or "").rsplit(".", 1)[-1].lower()
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(400, f"Unsupported file type '.{ext}'. Use PDF, TXT, or MD.")
     content = await file.read()
     if len(content) > 20 * 1024 * 1024:  # 20 MB guard
         raise HTTPException(400, "File too large. Max 20 MB.")
+    _validate_chunk_settings(chunk_size, chunk_overlap)
     try:
-        stats = ingest_document(content, file.filename or "upload")
+        stats = ingest_document(content, file.filename or "upload", chunk_size, chunk_overlap)
     except ValueError as e:
         raise HTTPException(422, str(e))
     return stats
+
+
+@app.post("/ingest/stream")
+async def ingest_stream(
+    file: UploadFile = File(...),
+    chunk_size: int = Form(CHUNK_SIZE),
+    chunk_overlap: int = Form(CHUNK_OVERLAP),
+):
+    """Same as /ingest but streams progress events (loading/chunking/embedding/storing/done)
+    as Server-Sent Events, so the client can render live pipeline progress."""
+    ext = (file.filename or "").rsplit(".", 1)[-1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(400, f"Unsupported file type '.{ext}'. Use PDF, TXT, or MD.")
+    content = await file.read()
+    if len(content) > 20 * 1024 * 1024:  # 20 MB guard
+        raise HTTPException(400, "File too large. Max 20 MB.")
+    _validate_chunk_settings(chunk_size, chunk_overlap)
+    filename = file.filename or "upload"
+
+    def event_stream():
+        try:
+            for event in ingest_document_events(content, filename, chunk_size, chunk_overlap):
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'stage': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 class QueryRequest(BaseModel):

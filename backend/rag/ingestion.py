@@ -41,40 +41,66 @@ def _extract_text(file_bytes: bytes, filename: str) -> str:
 
 
 # ── Chunking ─────────────────────────────────────────────────────────────────
-def _chunk_text(text: str) -> list[str]:
+def _chunk_text(text: str, chunk_size: int = CHUNK_SIZE, chunk_overlap: int = CHUNK_OVERLAP) -> list[str]:
     chunks = []
     start = 0
+    step = max(chunk_size - chunk_overlap, 1)
     while start < len(text):
-        end = start + CHUNK_SIZE
+        end = start + chunk_size
         chunk = text[start:end].strip()
         if chunk:
             chunks.append(chunk)
-        start += CHUNK_SIZE - CHUNK_OVERLAP
+        start += step
     return chunks
 
 
+EMBED_BATCH_SIZE = 50
+
+
 # ── Public API ───────────────────────────────────────────────────────────────
-def ingest_document(file_bytes: bytes, filename: str) -> dict:
-    """Parse, chunk, embed, and store a document. Returns stats."""
+def ingest_document_events(
+    file_bytes: bytes,
+    filename: str,
+    chunk_size: int = CHUNK_SIZE,
+    chunk_overlap: int = CHUNK_OVERLAP,
+):
+    """Parse, chunk, embed, and store a document, yielding progress events at each stage."""
+    yield {"stage": "loading", "filename": filename}
     text = _extract_text(file_bytes, filename)
     if not text.strip():
-        raise ValueError("Could not extract any text from the document.")
+        yield {"stage": "error", "message": "Could not extract any text from the document."}
+        return
+    yield {"stage": "loaded", "char_count": len(text)}
 
-    chunks = _chunk_text(text)
+    yield {"stage": "chunking", "chunk_size": chunk_size, "chunk_overlap": chunk_overlap}
+    chunks = _chunk_text(text, chunk_size, chunk_overlap)
+    if not chunks:
+        yield {"stage": "error", "message": "Chunking produced no chunks."}
+        return
+    yield {"stage": "chunked", "chunks": len(chunks)}
+
     doc_id = str(uuid.uuid4())
 
     # Batch embed (Gemini allows up to 100 per call)
     embeddings = []
-    batch_size = 50
-    for i in range(0, len(chunks), batch_size):
-        batch = chunks[i : i + batch_size]
+    total_batches = (len(chunks) + EMBED_BATCH_SIZE - 1) // EMBED_BATCH_SIZE
+    for batch_num, i in enumerate(range(0, len(chunks), EMBED_BATCH_SIZE), start=1):
+        batch = chunks[i : i + EMBED_BATCH_SIZE]
         result = genai.embed_content(
             model=EMBED_MODEL,
             content=batch,
             task_type="retrieval_document",
         )
         embeddings.extend(result["embedding"])
+        yield {
+            "stage": "embedding",
+            "batch": batch_num,
+            "total_batches": total_batches,
+            "embedded": len(embeddings),
+            "total": len(chunks),
+        }
 
+    yield {"stage": "storing"}
     collection = get_collection()
     ids = [f"{doc_id}_{i}" for i in range(len(chunks))]
     metadatas = [
@@ -84,13 +110,30 @@ def ingest_document(file_bytes: bytes, filename: str) -> dict:
 
     collection.add(ids=ids, embeddings=embeddings, metadatas=metadatas, documents=chunks)
 
-    return {
+    yield {
+        "stage": "done",
         "doc_id": doc_id,
         "filename": filename,
         "chunks": len(chunks),
         "embed_model": EMBED_MODEL,
         "char_count": len(text),
     }
+
+
+def ingest_document(
+    file_bytes: bytes,
+    filename: str,
+    chunk_size: int = CHUNK_SIZE,
+    chunk_overlap: int = CHUNK_OVERLAP,
+) -> dict:
+    """Parse, chunk, embed, and store a document. Returns final stats (non-streaming)."""
+    result = None
+    for event in ingest_document_events(file_bytes, filename, chunk_size, chunk_overlap):
+        if event["stage"] == "error":
+            raise ValueError(event["message"])
+        if event["stage"] == "done":
+            result = event
+    return {k: v for k, v in result.items() if k != "stage"}
 
 
 def list_documents() -> list[dict]:
