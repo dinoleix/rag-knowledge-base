@@ -165,10 +165,16 @@ def query(req: QueryRequest):
     if not req.question.strip():
         raise HTTPException(400, "Question cannot be empty.")
     _validate_generation_settings(req.gen_temperature, req.gen_top_p, req.gen_top_k)
-    sources = retrieve(req.question, top_k=req.top_k)
-    answer = generate_answer(
-        req.question, sources, req.gen_temperature, req.gen_top_p, req.gen_top_k
-    )
+    try:
+        sources = retrieve(req.question, top_k=req.top_k)
+        answer = generate_answer(
+            req.question, sources, req.gen_temperature, req.gen_top_p, req.gen_top_k
+        )
+    except Exception as e:
+        # Surface the real Gemini/Chroma error instead of an opaque 500 (which
+        # skips CORSMiddleware entirely and shows up client-side as a
+        # misleading "Failed to fetch" / CORS error).
+        raise HTTPException(502, f"Query failed: {e}")
     return {"answer": answer, "sources": sources}
 
 
